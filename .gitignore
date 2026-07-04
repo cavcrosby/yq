@@ -61,7 +61,17 @@ yq.1
 
 # debian pkg
 _build
+*.buildinfo
+*.changes
+*.deb
+yq.bash
+yq.zsh
+yq.fish
 debian/files
+debian/.debhelper
+debian/yq-go
+debian/debhelper-build-stamp
+debian/yq-go.substvars
 
 # intellij
 /.idea

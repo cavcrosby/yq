@@ -1,0 +1,25 @@
+#!/bin/bash
+#
+# Builds the packages.
+
+set -eo pipefail
+
+# constants
+PROGNAME="$(basename "$0")"
+readonly PROGNAME
+
+if [ "$(id --user)" != "$(find "${PWD}" -maxdepth 0 -printf "%U")" ]; then
+    printf \
+        "%s: %s\n" \
+        "${PROGNAME}" \
+        "you must run this as the user ID of the present working directory" \
+        >&2
+
+    exit 1
+fi
+
+debuild \
+    --unsigned-source \
+    --unsigned-buildinfo \
+    --unsigned-changes \
+    --build="binary"
