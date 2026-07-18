@@ -1,0 +1,108 @@
+#!/bin/bash
+#
+# Tests the script used to sync a remote Git repository with its upstream
+# repository counterpart.
+
+set -eo pipefail
+
+# constants
+PROGNAME="$(basename "$0")"
+readonly PROGNAME
+
+get_incremented_tag() {
+    tag="$(\
+        git tag \
+            | grep "[[:digit:]]*\.[[:digit:]]*\.[[:digit:]]*" \
+            | sort --version-sort \
+            | tail --lines 1 \
+    )"
+
+    # increments just the patch version by 1 and stitches it back
+    printf \
+        "%s\n" \
+        "$(printf "%s\n" "${tag}" | sed "s/[[:digit:]]*$//")""$(\
+            printf "%s\n" "${tag}" \
+                | sed "s/.*\.//" \
+                | awk '{ printf "%i\n", $1 + 1 }' \
+        )"
+}
+
+if ! [ "$(command -v pcre2grep)" ]; then
+    printf "%s: %s\n" "${PROGNAME}" "pcre2grep cannot be found in the PATH!" >&2
+    exit 1
+fi
+
+mkdir --parents "./tmp"
+git clone --bare "https://github.com/mikefarah/yq.git" "./tmp/yq-test.git"
+git clone "file://${PWD}/tmp/yq-test.git" "./tmp/yq-test"
+
+cd "./tmp/yq-test"
+printf "# foo\n# bar\n" >> "./README.md"
+git add "./README.md"
+git commit --message "Update the README.md file"
+
+tag1="$(get_incremented_tag)"
+cat << _EOF_ >> "./release_notes.txt"
+${tag1#v}:
+- Update the README.md file
+- Bump the dependencies
+_EOF_
+
+git add "./release_notes.txt"
+git commit --message "Bump the version"
+git tag "${tag1}"
+
+printf "# baz\n" >> "./README.md"
+git add "./README.md"
+git commit --message "Update the README.md file...again"
+
+tag2="$(get_incremented_tag)"
+cat << _EOF_ >> "./release_notes.txt"
+${tag2#v}:
+- Update the README.md file...again
+- Bump the dependencies
+_EOF_
+
+git add "./release_notes.txt"
+git commit --message "Bump the version"
+git tag "${tag2}"
+git push "origin" "master"
+git push --tags "origin"
+cd "${OLDPWD}"
+
+if git remote | grep --quiet "upstream"; then
+    git remote remove "upstream"
+fi
+
+./scripts/sync-upstream "file://${PWD}/tmp/yq-test.git" "true"
+if ! printf \
+        "%s\n" \
+        "$(git diff "${tag1}~1..${tag1}" "debian/changelog")" \
+    | pcre2grep \
+        --multiline \
+        --quiet \
+        "\+  \* Update the README.md file\n\+  \* Bump the dependencies" \
+; then
+    printf \
+        "%s: %s\n" "${PROGNAME}" \
+        "couldn't find ${tag1} release notes entries in debian/changelog" \
+        >&2
+
+    exit 1
+elif ! printf \
+        "%s\n" \
+        "$(git diff "${tag2}~1..${tag2}" "debian/changelog")" \
+    | pcre2grep \
+        --multiline \
+        --quiet \
+        "\+  \* Update the README.md file...again\n\+  \* Bump the dependencies" \
+; then
+    printf \
+        "%s: %s\n" "${PROGNAME}" \
+        "couldn't find ${tag2} release notes entries in debian/changelog" \
+        >&2
+
+    exit 1
+fi
+
+exit 0

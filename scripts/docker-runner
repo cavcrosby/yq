@@ -1,0 +1,18 @@
+#!/bin/bash
+#
+# Runs commands in a Docker container.
+
+docker run \
+    --detach \
+    --tty \
+    --name "debian" \
+    --mount "type=bind,src=${PWD}/..,dst=/build" \
+    --mount "type=bind,src=${PWD},dst=/build/yq" \
+    "debian:unstable"
+
+docker exec --workdir "/build/yq" "debian" "./scripts/setup"
+docker exec \
+    --workdir "/build/yq" \
+    --user "$(id --user)" \
+    "debian" \
+    "./scripts/build-pkgs"

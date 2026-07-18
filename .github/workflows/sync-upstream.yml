@@ -1,0 +1,36 @@
+name: Sync with the upstream repository
+
+on:
+  schedule:
+    - cron: "0 5 30 * *"
+  workflow_dispatch: {}
+
+jobs:
+  sync-upstream:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.ACCESS_TOKEN }}
+
+      - name: Install the workflow dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install "devscripts" "pcre2-utils"
+
+      - name: Sync the upstream's repository contents
+        run: |
+          git config set --global "user.name" "github-actions[bot]"
+          git config set \
+            --global \
+            "user.email" \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          ./scripts/sync-upstream
+
+      - name: Test syncing future upstream repository contents
+        run: ./scripts/sync-upstream-test
+        env:
+          DEBEMAIL: "cavcrosby@gmail.com"
+          DEBFULLNAME: "Conner Crosby"

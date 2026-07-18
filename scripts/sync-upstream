@@ -1,0 +1,98 @@
+#!/bin/bash
+#
+# Syncs a remote Git repository with its upstream repository counterpart.
+
+set -eo pipefail
+
+# constants
+PROGNAME="$(basename "$0")"
+readonly PROGNAME
+
+upstream_repo_url="${1:-https://github.com/mikefarah/yq.git}"
+dry_run="${2:-false}"
+
+is_ge_version() {
+    local version1="$1"
+    local version2="$2"
+
+    # uniq handles equal versions
+    ! printf \
+        "%s\n%s\n" \
+        "${version1}" \
+        "${version2}" \
+        | sort --version-sort \
+        | uniq --unique \
+        | head --lines 1 \
+        | grep --quiet "${version1}"
+}
+
+if ! [ "${GITHUB_ACTIONS}" ] && [ "${dry_run}" != "true" ]; then
+    printf \
+        "%s: %s\n" \
+        "${PROGNAME}" \
+        "must run in a GitHub Actions's workflow or be a dry run" \
+        >&2
+
+    exit 1
+fi
+
+if ! [ "$(command -v git)" ]; then
+    printf "%s: %s\n" "${PROGNAME}" "git cannot be found in the PATH!" >&2
+    exit 1
+fi
+
+if ! [ "$(command -v pcre2grep)" ]; then
+    printf "%s: %s\n" "${PROGNAME}" "pcre2grep cannot be found in the PATH!" >&2
+    exit 1
+fi
+
+git remote add --no-tags --fetch "upstream" "${upstream_repo_url}"
+tags="$(\
+    git ls-remote \
+        --refs \
+        --tags \
+        "upstream" \
+        "v[[:digit:]]*\.[[:digit:]]*\.[[:digit:]]*" \
+        | awk '{ sub("refs/tags/", "", $2); print $2 }' \
+)"
+
+for tag in ${tags}; do
+    # version 4.53.3 is the starting/base version to build
+    if is_ge_version \
+        "${tag}" \
+        "v4.53.3" \
+        && ! grep --quiet "${tag#v}" "./debian/changelog"; then
+            git merge \
+                --message "Merge tag '${tag}'" \
+                "$(git ls-remote "upstream" "${tag}" | awk '{ print $1 }')"
+
+            debchange --newversion "${tag#v}-1" --distribution "unstable" ""
+            while IFS= read -r line; do
+                if printf "%s\n" "${line}" | grep --quiet "${tag#v}"; then
+                    continue
+                fi
+
+                debchange --append "$(\
+                    printf "%s\n" "${line}" | sed "s/^ *- //g" \
+                )"
+            done <<< "$(\
+                printf \
+                    "%s\n"\
+                    "$(git show "upstream/master:release_notes.txt")" \
+                    | pcre2grep \
+                        --multiline \
+                        "^${tag#v}:\n(\s*- [^\n]+\n)+" \
+            )"
+
+            git add "./debian/changelog"
+            git commit --message "Update the debian/changelog file"
+            git tag "${tag}"
+    fi
+done
+
+if [ "${dry_run}" != "true" ]; then
+    git push "origin" "master"
+    git push --tags "origin"
+fi
+
+exit 0
