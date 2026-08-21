@@ -64,7 +64,7 @@ for tag in ${tags}; do
         && ! grep --quiet "${tag#v}" "./debian/changelog"; then
             git merge \
                 --message "Merge tag '${tag}'" \
-                "$(git ls-remote "upstream" "${tag}" | awk '{ print $1 }')"
+                "$(git ls-remote "upstream" "${tag}^{}" | awk '{ print $1 }')"
 
             debchange --newversion "${tag#v}-1" --distribution "unstable" ""
             while IFS= read -r line; do

@@ -50,7 +50,7 @@ _EOF_
 
 git add "./release_notes.txt"
 git commit --message "Bump the version"
-git tag "${tag1}"
+git tag --annotate --message "Update the README.md file" "${tag1}"
 
 printf "# baz\n" >> "./README.md"
 git add "./README.md"
@@ -65,7 +65,7 @@ _EOF_
 
 git add "./release_notes.txt"
 git commit --message "Bump the version"
-git tag "${tag2}"
+git tag --annotate --message "Update the README.md file...again" "${tag2}"
 git push "origin" "master"
 git push --tags "origin"
 cd "${OLDPWD}"

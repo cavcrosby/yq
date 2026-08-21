@@ -8,6 +8,9 @@ on:
 jobs:
   sync-upstream:
     runs-on: ubuntu-latest
+    env:
+      DEBEMAIL: cavcrosby@gmail.com
+      DEBFULLNAME: Conner Crosby
     steps:
       - uses: actions/checkout@v6
         with:
@@ -31,6 +34,3 @@ jobs:
 
       - name: Test syncing future upstream repository contents
         run: ./scripts/sync-upstream-test
-        env:
-          DEBEMAIL: "cavcrosby@gmail.com"
-          DEBFULLNAME: "Conner Crosby"
