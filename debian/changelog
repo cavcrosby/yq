@@ -1,3 +1,9 @@
+yq (4.53.6-1) unstable; urgency=medium
+
+  * Fixing release build issue
+
+ -- Conner Crosby <cavcrosby@gmail.com>  Fri, 21 Aug 2026 21:15:21 +0000
+
 yq (4.53.5-1) unstable; urgency=medium
 
   * Fixed line wrapping bug (#2824, #2823) Thanks mxey
